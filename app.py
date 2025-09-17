@@ -1,8 +1,8 @@
 
 from flask import Flask, request, redirect, jsonify, render_template, send_from_directory
 import os
-import mysql.connector 
-from mysql.connector import pooling, Error
+import psycopg2
+from psycopg2 import pool, Error
 from dotenv import load_dotenv
 import hashlib 
 import base64 
@@ -16,10 +16,10 @@ app = Flask(__name__)
 # DB config from environment
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "port": int(os.getenv("DB_PORT", 3306)),
-    "user": os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASSWORD", "root"),
-    "database": os.getenv("DB_NAME", "test"),
+    "port": int(os.getenv("DB_PORT", 5432)),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD", "password"),
+    "database": os.getenv("DB_NAME", "urlshortener"),
     "autocommit": True
 }
 
@@ -40,20 +40,19 @@ def init_db_pool():
         
     try:
         print(f"Attempting to connect to database with config: {DB_CONFIG}")
-        POOL = pooling.MySQLConnectionPool(
-            pool_name="url_shortener_pool",
-            pool_size=5,
-            pool_reset_session=True,
+        POOL = psycopg2.pool.SimpleConnectionPool(
+            minconn=1,
+            maxconn=5,
             **DB_CONFIG
         )
         print("Database connection pool initialized successfully")
         
         # Test the connection
-        test_conn = POOL.get_connection()
+        test_conn = POOL.getconn()
         test_cursor = test_conn.cursor()
         test_cursor.execute("SELECT 1")
         test_cursor.close()
-        test_conn.close()
+        POOL.putconn(test_conn)
         print("Database connection test successful")
         
         # Create table if it doesn't exist
@@ -72,16 +71,16 @@ def create_table_if_not_exists():
         return
         
     try:
-        conn = POOL.get_connection()
+        conn = POOL.getconn()
         cursor = conn.cursor()
         
         # Create the url_mapping table
         create_table_query = """
         CREATE TABLE IF NOT EXISTS url_mapping (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             long_url TEXT NOT NULL,
             short_url VARCHAR(10) NOT NULL UNIQUE,
-            clicks INT DEFAULT 0,
+            clicks INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -89,7 +88,7 @@ def create_table_if_not_exists():
         cursor.execute(create_table_query)
         conn.commit()
         cursor.close()
-        conn.close()
+        POOL.putconn(conn)
         print("Table 'url_mapping' created or verified successfully")
         
     except Error as e:
@@ -101,7 +100,7 @@ def get_db_connection():
         print("Connection pool is not initialized")
         return None
     try:
-        return POOL.get_connection()
+        return POOL.getconn()
     except Error as e:
         print("DB connection error:", e)
         return None
@@ -156,23 +155,23 @@ def shorten_url():
        return "Database connection error. Please try again later.", 500
        
    try:
-       cursor = conn.cursor(dictionary=True) 
+       cursor = conn.cursor() 
 
        # Check if URL exists 
        cursor.execute("SELECT short_url FROM url_mapping WHERE long_url = %s", (long_url,)) 
        existing_entry = cursor.fetchone() 
        if existing_entry: 
-           conn.close() 
+           POOL.putconn(conn) 
            return jsonify({
                'success': True,
-               'short_url': f"{request.host_url}{existing_entry['short_url']}",
+               'short_url': f"{request.host_url}{existing_entry[0]}",
                'original_url': long_url
            })
 
        short_url = generate_short_url(long_url) 
        cursor.execute("INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s)", (long_url, short_url)) 
        conn.commit() 
-       conn.close() 
+       POOL.putconn(conn) 
 
        return jsonify({
            'success': True,
@@ -181,7 +180,7 @@ def shorten_url():
        })
    except Error as e:
        if conn:
-           conn.close()
+           POOL.putconn(conn)
        print(f"Database error: {e}")
        return "Database error occurred", 500
  
@@ -201,21 +200,21 @@ def redirect_url(short_url):
        return "Database connection error. Please try again later.", 500
        
    try:
-       cursor = conn.cursor(dictionary=True) 
+       cursor = conn.cursor() 
 
        cursor.execute("SELECT long_url FROM url_mapping WHERE short_url = %s", (short_url,)) 
        entry = cursor.fetchone() 
        if entry: 
            cursor.execute("UPDATE url_mapping SET clicks = clicks + 1 WHERE short_url = %s", (short_url,)) 
            conn.commit() 
-           conn.close() 
-           return redirect(entry['long_url']) 
+           POOL.putconn(conn) 
+           return redirect(entry[0]) 
 
-       conn.close() 
+       POOL.putconn(conn) 
        return "Error: URL not found", 404
    except Error as e:
        if conn:
-           conn.close()
+           POOL.putconn(conn)
        print(f"Database error: {e}")
        return "Database error occurred", 500
  
