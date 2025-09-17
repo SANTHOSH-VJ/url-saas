@@ -23,10 +23,23 @@ DB_CONFIG = {
     "autocommit": True
 }
 
+# Check if we're in development mode (no database available)
+DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
+
+# In-memory storage for development mode
+DEV_STORAGE = {}
+
 # Initialize database connection pool
 def init_db_pool():
     global POOL
+    
+    if DEVELOPMENT_MODE:
+        print("Running in DEVELOPMENT_MODE - Database connection disabled")
+        POOL = None
+        return
+        
     try:
+        print(f"Attempting to connect to database with config: {DB_CONFIG}")
         POOL = pooling.MySQLConnectionPool(
             pool_name="url_shortener_pool",
             pool_size=5,
@@ -34,9 +47,53 @@ def init_db_pool():
             **DB_CONFIG
         )
         print("Database connection pool initialized successfully")
+        
+        # Test the connection
+        test_conn = POOL.get_connection()
+        test_cursor = test_conn.cursor()
+        test_cursor.execute("SELECT 1")
+        test_cursor.close()
+        test_conn.close()
+        print("Database connection test successful")
+        
+        # Create table if it doesn't exist
+        create_table_if_not_exists()
+        
     except Error as e:
         print(f"Error creating connection pool: {e}")
+        print(f"Database config being used: {DB_CONFIG}")
+        print("Falling back to development mode...")
         POOL = None
+
+# Create table if it doesn't exist
+def create_table_if_not_exists():
+    if POOL is None:
+        print("Cannot create table - connection pool not initialized")
+        return
+        
+    try:
+        conn = POOL.get_connection()
+        cursor = conn.cursor()
+        
+        # Create the url_mapping table
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS url_mapping (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            long_url TEXT NOT NULL,
+            short_url VARCHAR(10) NOT NULL UNIQUE,
+            clicks INT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        
+        cursor.execute(create_table_query)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("Table 'url_mapping' created or verified successfully")
+        
+    except Error as e:
+        print(f"Error creating table: {e}")
 
 # Create a pool of connections
 def get_db_connection():
@@ -74,9 +131,21 @@ def shorten_url():
    if not long_url: 
        return "Invalid URL", 400 
 
+   # Development mode - use in-memory storage
+   if DEVELOPMENT_MODE or POOL is None:
+       # Check if URL already exists in dev storage
+       for short_url, stored_long_url in DEV_STORAGE.items():
+           if stored_long_url == long_url:
+               return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>"
+       
+       # Generate new short URL
+       short_url = generate_short_url(long_url)
+       DEV_STORAGE[short_url] = long_url
+       return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>"
+
    conn = get_db_connection() 
    if conn is None:
-       return "Database connection error", 500
+       return "Database connection error. Please try again later.", 500
        
    try:
        cursor = conn.cursor(dictionary=True) 
@@ -104,9 +173,16 @@ def shorten_url():
 # Redirect shortened URLs 
 @app.route('/<short_url>', methods=['GET']) 
 def redirect_url(short_url): 
+   # Development mode - use in-memory storage
+   if DEVELOPMENT_MODE or POOL is None:
+       if short_url in DEV_STORAGE:
+           return redirect(DEV_STORAGE[short_url])
+       else:
+           return "Error: URL not found", 404
+       
    conn = get_db_connection() 
    if conn is None:
-       return "Database connection error", 500
+       return "Database connection error. Please try again later.", 500
        
    try:
        cursor = conn.cursor(dictionary=True) 
