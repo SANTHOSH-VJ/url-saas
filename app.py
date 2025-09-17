@@ -18,8 +18,7 @@ DB_CONFIG = {
     "port": int(os.getenv("DB_PORT", 3306)),
     "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASSWORD", "root"),
-    "database": os.getenv("DB_NAME", "test"),
-    "autocommit": True
+    "database": os.getenv("DB_NAME", "test")
 }
 
 # Check if we're in development mode (no database available)
@@ -27,6 +26,7 @@ DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
 
 # In-memory storage for development mode
 DEV_STORAGE = {}
+
 
 # Initialize database connection pool
 def init_db_pool():
@@ -63,6 +63,7 @@ def init_db_pool():
         print("Falling back to development mode...")
         POOL = None
 
+
 # Create table if it doesn't exist
 def create_table_if_not_exists():
     if POOL is None:
@@ -92,17 +93,21 @@ def create_table_if_not_exists():
     except Error as e:
         print(f"Error creating table: {e}")
 
+
 # Get connection from pool
 def get_db_connection():
     if POOL is None:
-        print("Connection pool is not initialized")
-        return None
+        print("Connection pool is not initialized, trying direct connection...")
+        try:
+            return mysql.connector.connect(**DB_CONFIG)
+        except Error as e:
+            print("Direct DB connection error:", e)
+            return None
     try:
         return POOL.get_connection()
     except Error as e:
         print("DB connection error:", e)
         return None
-        return mysql.connector.connect(**DB_CONFIG) 
 
 
 # Function to generate a short URL
@@ -168,6 +173,12 @@ def shorten_url():
         short_url = generate_short_url(long_url)
         cursor.execute("INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s)", (long_url, short_url))
         conn.commit()
+
+        # Debugging: confirm insert
+        print(f"Inserted row: long_url={long_url}, short_url={short_url}")
+        cursor.execute("SELECT * FROM url_mapping ORDER BY id DESC LIMIT 1")
+        print("Last inserted row:", cursor.fetchone())
+
         conn.close()
 
         return jsonify({
