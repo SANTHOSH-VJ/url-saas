@@ -136,12 +136,20 @@ def shorten_url():
        # Check if URL already exists in dev storage
        for short_url, stored_long_url in DEV_STORAGE.items():
            if stored_long_url == long_url:
-               return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>"
+               return jsonify({
+                   'success': True,
+                   'short_url': f"{request.host_url}{short_url}",
+                   'original_url': long_url
+               })
        
        # Generate new short URL
        short_url = generate_short_url(long_url)
        DEV_STORAGE[short_url] = long_url
-       return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>"
+       return jsonify({
+           'success': True,
+           'short_url': f"{request.host_url}{short_url}",
+           'original_url': long_url
+       })
 
    conn = get_db_connection() 
    if conn is None:
@@ -155,14 +163,22 @@ def shorten_url():
        existing_entry = cursor.fetchone() 
        if existing_entry: 
            conn.close() 
-           return f"Shortened URL: <a href='{request.host_url}{existing_entry['short_url']}'>{request.host_url}{existing_entry['short_url']}</a>" 
+           return jsonify({
+               'success': True,
+               'short_url': f"{request.host_url}{existing_entry['short_url']}",
+               'original_url': long_url
+           })
 
        short_url = generate_short_url(long_url) 
        cursor.execute("INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s)", (long_url, short_url)) 
        conn.commit() 
        conn.close() 
 
-       return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>"
+       return jsonify({
+           'success': True,
+           'short_url': f"{request.host_url}{short_url}",
+           'original_url': long_url
+       })
    except Error as e:
        if conn:
            conn.close()
