@@ -1,5 +1,5 @@
 
-from flask import Flask, request, redirect, jsonify, render_template 
+from flask import Flask, request, redirect, jsonify, render_template, send_from_directory
 import os
 import mysql.connector 
 from mysql.connector import pooling, Error
@@ -12,7 +12,7 @@ POOL = None  # define globally to avoid NameError
 load_dotenv()
  
 app = Flask(__name__) 
- 
+
 # DB config from environment
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -22,6 +22,21 @@ DB_CONFIG = {
     "database": os.getenv("DB_NAME", "test"),
     "autocommit": True
 }
+
+# Initialize database connection pool
+def init_db_pool():
+    global POOL
+    try:
+        POOL = pooling.MySQLConnectionPool(
+            pool_name="url_shortener_pool",
+            pool_size=5,
+            pool_reset_session=True,
+            **DB_CONFIG
+        )
+        print("Database connection pool initialized successfully")
+    except Error as e:
+        print(f"Error creating connection pool: {e}")
+        POOL = None
 
 # Create a pool of connections
 def get_db_connection():
@@ -44,7 +59,12 @@ def generate_short_url(long_url):
 
 @app.route('/') 
 def home(): 
-   return render_template('index.html') 
+   return render_template('index.html')
+
+# Handle favicon requests
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204  # Return empty response with 204 status 
  
  
 # Handle URL shortening 
@@ -53,44 +73,64 @@ def shorten_url():
    long_url = request.form.get('long_url') 
    if not long_url: 
        return "Invalid URL", 400 
- 
-   conn = get_db_connection() 
-   cursor = conn.cursor(dictionary=True) 
- 
-   # Check if URL exists 
-   cursor.execute("SELECT short_url FROM url_mapping WHERE long_url = %s", (long_url,)) 
-   existing_entry = cursor.fetchone() 
-   if existing_entry: 
-       conn.close() 
-       #return f"Shortened URL: <a href='{request.host_url}{existing_entry['short_url']}'>{request.host_url}{existing_entry['short_url']}</a>" 
-       return f"Shortened URL: <a href='{request.host_url}{existing_entry['short_url']}'>https://us/{existing_entry['short_url']}</a>" 
- 
-   short_url = generate_short_url(long_url) 
-   cursor.execute("INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s)", (long_url, short_url)) 
-   conn.commit() 
-   conn.close() 
 
-   return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>" 
+   conn = get_db_connection() 
+   if conn is None:
+       return "Database connection error", 500
+       
+   try:
+       cursor = conn.cursor(dictionary=True) 
+
+       # Check if URL exists 
+       cursor.execute("SELECT short_url FROM url_mapping WHERE long_url = %s", (long_url,)) 
+       existing_entry = cursor.fetchone() 
+       if existing_entry: 
+           conn.close() 
+           return f"Shortened URL: <a href='{request.host_url}{existing_entry['short_url']}'>{request.host_url}{existing_entry['short_url']}</a>" 
+
+       short_url = generate_short_url(long_url) 
+       cursor.execute("INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s)", (long_url, short_url)) 
+       conn.commit() 
+       conn.close() 
+
+       return f"Shortened URL: <a href='{request.host_url}{short_url}'>{request.host_url}{short_url}</a>"
+   except Error as e:
+       if conn:
+           conn.close()
+       print(f"Database error: {e}")
+       return "Database error occurred", 500
  
  
 # Redirect shortened URLs 
 @app.route('/<short_url>', methods=['GET']) 
 def redirect_url(short_url): 
    conn = get_db_connection() 
-   cursor = conn.cursor(dictionary=True) 
- 
-   cursor.execute("SELECT long_url FROM url_mapping WHERE short_url = %s", (short_url,)) 
-   entry = cursor.fetchone() 
-   if entry: 
-       cursor.execute("UPDATE url_mapping SET clicks = clicks + 1 WHERE short_url = %s", (short_url,)) 
-       conn.commit() 
+   if conn is None:
+       return "Database connection error", 500
+       
+   try:
+       cursor = conn.cursor(dictionary=True) 
+
+       cursor.execute("SELECT long_url FROM url_mapping WHERE short_url = %s", (short_url,)) 
+       entry = cursor.fetchone() 
+       if entry: 
+           cursor.execute("UPDATE url_mapping SET clicks = clicks + 1 WHERE short_url = %s", (short_url,)) 
+           conn.commit() 
+           conn.close() 
+           return redirect(entry['long_url']) 
+
        conn.close() 
-       return redirect(entry['long_url']) 
+       return "Error: URL not found", 404
+   except Error as e:
+       if conn:
+           conn.close()
+       print(f"Database error: {e}")
+       return "Database error occurred", 500
  
-   conn.close() 
-   return "Error: URL not found", 404 
  
- 
+# Initialize database pool when the app starts
+init_db_pool()
+
 # Run the Flask application 
 if __name__ == '__main__': 
    app.run(host="0.0.0.0", port=5000, debug=True) 
