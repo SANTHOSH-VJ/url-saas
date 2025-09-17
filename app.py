@@ -102,6 +102,7 @@ def get_db_connection():
     except Error as e:
         print("DB connection error:", e)
         return None
+        return mysql.connector.connect(**DB_CONFIG) 
 
 
 # Function to generate a short URL
