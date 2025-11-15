@@ -3,285 +3,315 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tiny – Premium URL Shortener</title>
-
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-
-    <!-- Bootstrap -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-
+    <title>URL Shortener - Shorten Your Links Instantly</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        /* GLOBAL */
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at top, #6b4df7, #4725c7, #31128b);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            overflow-x: hidden;
-            animation: bgMove 12s ease infinite alternate;
-            background-size: 180%;
         }
-
-        @keyframes bgMove {
-            0% { background-position: 0% 0%; }
-            100% { background-position: 100% 100%; }
+        .main-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-
-        /* BLOBS */
-        .blob {
-            position: fixed;
-            border-radius: 50%;
-            filter: blur(100px);
-            opacity: .55;
-            animation: floatBlob 18s infinite alternate ease-in-out;
-            z-index: -1;
-        }
-        .blob1 { width: 350px; height: 350px; background: #ff22bb; top: 10%; left: -60px; }
-        .blob2 { width: 420px; height: 420px; background: #6b4df7; bottom: 5%; right: -120px; }
-        .blob3 { width: 280px; height: 280px; background: #25e8ff; bottom: 30%; left: 20%; }
-
-        @keyframes floatBlob {
-            from { transform: translateY(0px) scale(1); }
-            to   { transform: translateY(-40px) scale(1.1); }
-        }
-
-        /* NAVBAR */
-        .glass-nav {
-            position: fixed;
-            top: 18px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 92%;
-            max-width: 1200px;
-            background: rgba(255,255,255,0.14);
+        .card {
+            border: none;
             border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             backdrop-filter: blur(10px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
-            padding: 14px 28px;
-            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
         }
-        .nav-logo {
-            font-size: 1.35rem;
-            font-weight: 700;
+        
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-        }
-        .nav-links a {
-            margin: 0 16px;
-            font-size: 15px;
-            color: rgba(255,255,255,0.85);
-            text-decoration: none;
-            transition: .2s;
-        }
-        .nav-links a:hover { color: white; }
-
-        /* HERO */
-        .hero {
-            margin-top: 140px;
+            border-radius: 20px 20px 0 0 !important;
+            padding: 2rem;
             text-align: center;
         }
-        .hero h1 {
-            font-size: 3.2rem;
-            font-weight: 800;
-            color: white;
+        
+        .card-body {
+            padding: 2.5rem;
         }
-        .hero p {
-            font-size: 1.1rem;
-            color: rgba(255,255,255,0.8);
-            margin-bottom: 30px;
-        }
-
-        /* FORM CARD */
-        .main-card {
-            width: 100%;
-            max-width: 750px;
-            margin: 0 auto 80px auto;
-            padding: 40px;
-            border-radius: 24px;
-            background: rgba(255,255,255,0.14);
-            backdrop-filter: blur(12px);
-            box-shadow: 0 12px 35px rgba(0,0,0,.22);
-        }
-
+        
         .form-control {
-            border-radius: 14px;
-            padding: 17px 20px;
-            border: 2px solid rgba(255,255,255,0.5);
-            background: rgba(255,255,255,0.85);
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            padding: 15px 20px;
             font-size: 16px;
-            transition: .25s;
+            transition: all 0.3s ease;
         }
+        
         .form-control:focus {
-            border-color: white;
-            box-shadow: 0 0 0 4px rgba(255,255,255,0.25);
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
         }
-
-        /* BUTTON */
+        
         .btn-primary {
-            background: linear-gradient(135deg, #6b4df7 0%, #a855f7 100%);
-            padding: 16px;
-            border-radius: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: white;
-            box-shadow: 0 10px 25px rgba(104,64,255,0.4);
-            transition: 0.3s;
+            border-radius: 12px;
+            padding: 15px 30px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
         }
+        
         .btn-primary:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 14px 30px rgba(104,64,255,0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
-
-        /* RESULT BOX */
-        #resultContainer {
-            display: none;
-            opacity: 0;
-            transition: opacity 0.6s ease;
+        
+        .result-container {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
         }
-        #resultContainer.show {
-            display: block;
-            opacity: 1;
-        }
-
-        .result-box {
-            background: rgba(255,255,255,0.92);
-            padding: 22px;
-            border-radius: 16px;
-            border-left: 6px solid #6b4df7;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-        }
-        .short-url-display {
+        
+        .result-url {
             font-family: 'Courier New', monospace;
             background: white;
-            padding: 12px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-            font-size: 15px;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
             word-break: break-all;
         }
-
-        /* FEATURES */
-        .feature-card {
-            padding: 30px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 20px;
+        
+        .copy-btn {
+            background: #28a745;
+            border: none;
+            border-radius: 8px;
             color: white;
-            height: 100%;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            padding: 8px 15px;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .copy-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+        
+        .features {
+            margin-top: 3rem;
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .loading {
+            display: none;
+        }
+        
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
         }
     </style>
 </head>
 <body>
-
-    <!-- BLOBS -->
-    <div class="blob blob1"></div>
-    <div class="blob blob2"></div>
-    <div class="blob blob3"></div>
-
-    <!-- NAVBAR -->
-    <nav class="glass-nav d-flex justify-content-between align-items-center">
-        <h3 class="nav-logo">KuttyyURL</h3>
-        <div class="nav-links">
-            <a href="#">Home</a>
-            <a href="#features">Features</a>
-            <a href="#">Docs</a>
-            <a href="#" class="nav-btn">Sign In</a>
-        </div>
-    </nav>
-
-    <!-- HERO -->
-    <div class="container hero">
-        <h1>Shorten URLs Instantly</h1>
-        <p>The fastest & cleanest custom url shortener you will ever use.</p>
-    </div>
-
-    <!-- MAIN FORM CARD -->
-    <div class="main-card">
-        <form id="urlForm">
-            <label class="fw-bold text-white mb-2">Enter Long URL</label>
-            <input type="url" id="long_url" class="form-control mb-4"
-                   placeholder="https://example.com/my-long-url" required>
-
-            <label class="fw-bold text-white mb-2">Custom Alias (optional)</label>
-            <div class="input-group mb-4">
-                <span class="input-group-text" id="base-url"></span>
-                <input type="text" id="alias" class="form-control" placeholder="yourname">
-            </div>
-
-            <button type="submit" id="submitBtn" class="btn btn-primary w-100">
-                <span class="btn-text">Shorten URL</span>
-                <span class="loading" style="display:none;">
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                    Processing...
-                </span>
-            </button>
-        </form>
-
-        <!-- RESULT BOX -->
-        <div id="resultContainer">
-            <div class="result-box mt-4">
-                <div class="d-flex align-items-center">
-                    <a id="resultUrl" class="short-url-display flex-grow-1 me-3" target="_blank"></a>
-                    <button class="copy-btn btn btn-success px-3" onclick="copyToClipboard()">Copy</button>
+    <div class="main-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8 col-md-10">
+                    <div class="card">
+                        <div class="card-header">
+                            <h1 class="mb-0">
+                                <i class="fas fa-link me-3"></i>
+                                URL Shortener
+                            </h1>
+                            <p class="mb-0 mt-2 opacity-75">Shorten your long URLs instantly and share them easily</p>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="/shorten" id="urlForm">
+                                <div class="mb-4">
+                                    <label for="long_url" class="form-label fw-semibold">
+                                        <i class="fas fa-globe me-2"></i>Enter your long URL
+                                    </label>
+                                    <input 
+                                        type="url" 
+                                        class="form-control form-control-lg" 
+                                        id="long_url" 
+                                        name="long_url" 
+                                        placeholder="https://example.com/very-long-url-that-needs-to-be-shortened"
+                                        required
+                                    >
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                        <span class="btn-text">
+                                            <i class="fas fa-compress-alt me-2"></i>Shorten URL
+                                        </span>
+                                        <span class="loading">
+                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                            Shortening...
+                                        </span>
+                                    </button>
+                                </div>
+                            </form>
+                            
+                            <!-- Result Container -->
+                            <div id="resultContainer" class="result-container" style="display: none;">
+                                <h5 class="mb-3">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Your shortened URL is ready!
+                                </h5>
+                                <div class="d-flex align-items-center">
+                                    <div class="result-url flex-grow-1" id="resultUrl"></div>
+                                    <button class="copy-btn" onclick="copyToClipboard()">
+                                        <i class="fas fa-copy me-1"></i>Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Features Section -->
+                    <div class="features">
+                        <div class="row text-center">
+                            <div class="col-md-4 mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-bolt"></i>
+                                </div>
+                                <h5>Lightning Fast</h5>
+                                <p class="text-muted">Generate short URLs in milliseconds with our optimized system.</p>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <h5>Secure & Reliable</h5>
+                                <p class="text-muted">Your URLs are safe and will never expire. Always accessible.</p>
+                            </div>
+                            <div class="col-md-4 mb-4">
+                                <div class="feature-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <h5>Analytics Ready</h5>
+                                <p class="text-muted">Track clicks and get insights on your shortened links.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>&copy; 2024 URL Shortener. Made with <i class="fas fa-heart text-danger"></i> for better sharing.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- JS -->
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
-        // Show base domain
-        document.getElementById("base-url").textContent = window.location.origin + "/";
-
-        // Submit form
-        document.getElementById("urlForm").addEventListener("submit", async (e) => {
+        // Form submission with AJAX
+        document.getElementById('urlForm').addEventListener('submit', function(e) {
             e.preventDefault();
-
-            const btn = document.getElementById("submitBtn");
-            btn.querySelector(".btn-text").style.display = "none";
-            btn.querySelector(".loading").style.display = "inline-block";
-            btn.disabled = true;
-
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const loading = submitBtn.querySelector('.loading');
+            const longUrl = document.getElementById('long_url').value;
+            
+            // Show loading state
+            btnText.style.display = 'none';
+            loading.style.display = 'inline-block';
+            submitBtn.disabled = true;
+            
+            // Create form data
             const formData = new FormData();
-            formData.append("long_url", document.getElementById("long_url").value);
-            formData.append("alias", document.getElementById("alias").value.replace(/\s+/g, "-"));
-
-            try {
-                const response = await fetch("/shorten", { method: "POST", body: formData });
-                const data = await response.json();
-
-                if (data.success) showResult(data.short_url);
-                else showError(data.error);
-            } catch (err) {
-                showError("Server Error. Try again.");
-            }
-
-            btn.querySelector(".btn-text").style.display = "inline-block";
-            btn.querySelector(".loading").style.display = "none";
-            btn.disabled = false;
+            formData.append('long_url', longUrl);
+            
+            // Send AJAX request
+            fetch('/shorten', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showResult(data.short_url);
+                } else {
+                    showError('Failed to shorten URL. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('An error occurred. Please try again.');
+            })
+            .finally(() => {
+                // Reset button state
+                btnText.style.display = 'inline-block';
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+            });
         });
-
-        function showResult(url) {
-            const box = document.getElementById("resultContainer");
-            document.getElementById("resultUrl").textContent = url;
-            document.getElementById("resultUrl").href = url;
-            box.classList.add("show");
-        }
-
-        function showError(msg) {
-            const box = document.getElementById("resultContainer");
-            document.getElementById("resultUrl").innerHTML = `<span class='text-danger fw-bold'>${msg}</span>`;
-            document.getElementById("resultUrl").removeAttribute("href");
-            box.classList.add("show");
-        }
-
+        
+        // Copy to clipboard function
         function copyToClipboard() {
-            const text = document.getElementById("resultUrl").textContent;
-            navigator.clipboard.writeText(text);
-            alert("Copied to clipboard!");
+            const resultUrl = document.getElementById('resultUrl');
+            const copyBtn = document.querySelector('.copy-btn');
+            
+            navigator.clipboard.writeText(resultUrl.textContent).then(function() {
+                // Change button text temporarily
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+                copyBtn.style.background = '#28a745';
+                
+                setTimeout(function() {
+                    copyBtn.innerHTML = originalText;
+                    copyBtn.style.background = '#28a745';
+                }, 2000);
+            });
         }
+        
+        function showResult(shortUrl) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultUrl = document.getElementById('resultUrl');
+            
+            resultUrl.textContent = shortUrl;
+            resultContainer.style.display = 'block';
+            
+            // Scroll to result
+            resultContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function showError(message) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultUrl = document.getElementById('resultUrl');
+            
+            resultUrl.innerHTML = `<span class="text-danger">${message}</span>`;
+            resultContainer.style.display = 'block';
+            resultContainer.style.borderLeftColor = '#dc3545';
+            
+            // Scroll to result
+            resultContainer.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Auto-focus on URL input
+        document.getElementById('long_url').focus();
     </script>
-
 </body>
 </html>
+
