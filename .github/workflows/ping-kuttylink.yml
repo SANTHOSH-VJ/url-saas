@@ -1,0 +1,15 @@
+name: Ping KuttyLink (every 15 minutes)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # every 15 minutes (UTC)
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping kuttylink
+        run: |
+          echo "Pinging https://kuttylink.onrender.com/ at $(date -u)"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://kuttylink.onrender.com/ || echo "000")
+          echo "HTTP status: $STATUS"
