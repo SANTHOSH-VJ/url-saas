@@ -386,8 +386,8 @@
         </div>
     </section>
 
-    <!-- Floating Button -->
-    <a href="#urlForm" class="floating-cta">
+    <!-- Floating Button (UPDATED WITH ID) -->
+    <a href="#urlForm" id="resetBtn" class="floating-cta">
         <i class="fa-solid fa-magic me-2"></i>
         Shorten Another
     </a>
@@ -438,6 +438,16 @@
             navigator.clipboard.writeText(text);
             alert("Copied to clipboard!");
         }
+
+        /* ✅ RESET FORM WHEN CLICKING "SHORTEN ANOTHER" */
+        document.getElementById("resetBtn").addEventListener("click", function () {
+            document.getElementById("long_url").value = "";
+            document.getElementById("alias").value = "";
+            document.getElementById("resultContainer").style.display = "none";
+
+            // Scroll back to the form
+            document.getElementById("urlForm").scrollIntoView({ behavior: "smooth" });
+        });
     </script>
 
 </body>
