@@ -623,6 +623,30 @@
                 <input type="text" id="alias" name="alias" class="form-control" placeholder="Add alias">
             </div>
 
+            <label class="fw-bold text-white mb-2">Link Expiration</label>
+            <div class="mb-4">
+                <select id="expiration" name="expiration" class="form-control" onchange="toggleCustomExpiration()">
+                    <option value="never">Never Expire (Permanent)</option>
+                    <option value="1h">1 Hour</option>
+                    <option value="24h">24 Hours</option>
+                    <option value="7d">7 Days</option>
+                    <option value="30d">30 Days</option>
+                    <option value="90d">90 Days</option>
+                    <option value="1y">1 Year</option>
+                    <option value="custom">Custom Duration</option>
+                </select>
+                <div id="customExpirationContainer" style="display: none; margin-top: 12px;">
+                    <div class="d-flex gap-2">
+                        <input type="number" id="customDuration" class="form-control" placeholder="Enter duration" min="1" style="flex: 2;">
+                        <select id="customUnit" class="form-control" style="flex: 1;">
+                            <option value="minutes">Minutes</option>
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <button type="submit" id="submitBtn" class="btn btn-primary w-100">
                 <span class="btn-text">Shorten URL</span>
                 <span class="loading" style="display:none;">
@@ -672,9 +696,9 @@
                     <div class="feature-icon">
                         <i class="fa-solid fa-lock"></i>
                     </div>
-                    <h4 class="fw-bold text-white mt-3">Secure & Reliable</h4>
+                    <h4 class="fw-bold text-white mt-3">Flexible Expiration</h4>
                     <p class="feature-text">
-                        Your URLs are encrypted, protected, and never expire. Built for 24/7 uptime.
+                        Set custom link expiration times or make them permanent. Full control over your shortened URLs.
                     </p>
                 </div>
             </div>
@@ -705,6 +729,36 @@
 
     <!-- JS -->
     <script>
+        function toggleCustomExpiration() {
+            const select = document.getElementById('expiration');
+            const container = document.getElementById('customExpirationContainer');
+            container.style.display = select.value === 'custom' ? 'block' : 'none';
+        }
+
+        function getExpirationValue() {
+            const select = document.getElementById('expiration');
+            if (select.value !== 'custom') {
+                return select.value;
+            }
+            
+            const duration = document.getElementById('customDuration').value;
+            const unit = document.getElementById('customUnit').value;
+            
+            if (!duration || duration <= 0) {
+                return 'never';
+            }
+            
+            // Convert to minutes for custom values
+            let minutes = parseInt(duration);
+            if (unit === 'hours') {
+                minutes *= 60;
+            } else if (unit === 'days') {
+                minutes *= 60 * 24;
+            }
+            
+            return 'custom_' + minutes;
+        }
+
         document.getElementById("urlForm").addEventListener("submit", function (e) {
             e.preventDefault();
 
@@ -716,11 +770,12 @@
             const formData = new FormData();
             formData.append("long_url", document.getElementById("long_url").value);
             formData.append("alias", document.getElementById("alias").value);
+            formData.append("expiration", getExpirationValue());
 
             fetch("/shorten", { method: "POST", body: formData })
                 .then((r) => r.json())
                 .then((data) => {
-                    if (data.success) showResult(data.short_url);
+                    if (data.success) showResult(data.short_url, data.expires_at);
                     else showError(data.error || "Something went wrong!");
                 })
                 .finally(() => {
@@ -730,8 +785,22 @@
                 });
         });
 
-        function showResult(url) {
-            document.getElementById("resultUrl").textContent = url;
+        function showResult(url, expiresAt) {
+            let expirationText = '';
+            if (expiresAt) {
+                const expDate = new Date(expiresAt);
+                expirationText = `<div class="text-muted mt-2" style="font-size: 13px;">
+                    <i class="fa-solid fa-clock me-1"></i>
+                    Expires: ${expDate.toLocaleString()}
+                </div>`;
+            } else {
+                expirationText = `<div class="text-success mt-2" style="font-size: 13px;">
+                    <i class="fa-solid fa-infinity me-1"></i>
+                    This link never expires
+                </div>`;
+            }
+            
+            document.getElementById("resultUrl").innerHTML = url + expirationText;
             document.getElementById("resultContainer").style.display = "block";
         }
 
@@ -742,7 +811,9 @@
         }
 
         function copyToClipboard() {
-            const text = document.getElementById("resultUrl").textContent;
+            const resultDiv = document.getElementById("resultUrl");
+            // Get just the URL text (first line before expiration info)
+            const text = resultDiv.textContent.split('\n')[0].trim().split('Expires:')[0].split('This link')[0].trim();
             navigator.clipboard.writeText(text);
             alert("Copied to clipboard!");
         }
@@ -750,6 +821,8 @@
         document.getElementById("resetBtn").addEventListener("click", function () {
             document.getElementById("long_url").value = "";
             document.getElementById("alias").value = "";
+            document.getElementById("expiration").value = "never";
+            document.getElementById("customExpirationContainer").style.display = "none";
             document.getElementById("resultContainer").style.display = "none";
 
             document.getElementById("urlForm").scrollIntoView({ behavior: "smooth" });

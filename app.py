@@ -8,6 +8,7 @@ import base64
 import re
 from urllib.parse import urlparse
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -19,7 +20,7 @@ app = Flask(__name__)
 DB_URL = os.getenv("DB_URL")   # Supabase Postgres Session Pooler URL
 DEVELOPMENT_MODE = os.getenv("DEVELOPMENT_MODE", "false").lower() == "true"
 
-DEV_STORAGE = {}
+DEV_STORAGE = {}  # Format: {short_url: {'long_url': url, 'expires_at': datetime or None}}
 POOL = None
 
 
@@ -51,8 +52,21 @@ def init_db_pool():
                     long_url TEXT NOT NULL,
                     short_url VARCHAR(50) UNIQUE NOT NULL,
                     clicks INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP DEFAULT NULL
                 );
+                """)
+                conn.commit()
+                
+                # Add expires_at column if it doesn't exist (for existing tables)
+                cursor.execute("""
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                   WHERE table_name='url_mapping' AND column_name='expires_at') THEN
+                        ALTER TABLE url_mapping ADD COLUMN expires_at TIMESTAMP DEFAULT NULL;
+                    END IF;
+                END $$;
                 """)
                 conn.commit()
 
@@ -121,10 +135,41 @@ def home():
 # --------------------------
 # SHORTEN URL
 # --------------------------
+def calculate_expiration(expiration_type):
+    """Calculate expiration datetime based on type."""
+    if not expiration_type or expiration_type == 'never':
+        return None
+    
+    now = datetime.now()
+    expiration_map = {
+        '1h': timedelta(hours=1),
+        '24h': timedelta(hours=24),
+        '7d': timedelta(days=7),
+        '30d': timedelta(days=30),
+        '90d': timedelta(days=90),
+        '1y': timedelta(days=365)
+    }
+    
+    if expiration_type in expiration_map:
+        return now + expiration_map[expiration_type]
+    
+    # Handle custom minutes
+    if expiration_type.startswith('custom_'):
+        try:
+            minutes = int(expiration_type.replace('custom_', ''))
+            if minutes > 0:
+                return now + timedelta(minutes=minutes)
+        except ValueError:
+            pass
+    
+    return None
+
+
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
     long_url = request.form.get('long_url', '').strip()
     custom_alias = request.form.get('alias', '').strip()
+    expiration_type = request.form.get('expiration', 'never').strip()
 
     # Validate URL
     if not long_url or not is_valid_url(long_url):
@@ -134,6 +179,9 @@ def shorten_url():
     if custom_alias and not is_valid_alias(custom_alias):
         return jsonify({"error": "Alias can only contain letters, numbers, hyphens, and underscores"}), 400
 
+    # Calculate expiration
+    expires_at = calculate_expiration(expiration_type)
+
     # --------------------------
     # DEVELOPMENT MODE
     # --------------------------
@@ -141,11 +189,12 @@ def shorten_url():
         if custom_alias:
             if custom_alias in DEV_STORAGE:
                 return jsonify({"error": "Alias already taken"}), 400
-            DEV_STORAGE[custom_alias] = long_url
+            DEV_STORAGE[custom_alias] = {'long_url': long_url, 'expires_at': expires_at}
             return jsonify({
                 "success": True,
                 "short_url": f"{request.host_url}{custom_alias}",
-                "original_url": long_url
+                "original_url": long_url,
+                "expires_at": expires_at.isoformat() if expires_at else None
             })
 
         # Handle collisions in dev mode
@@ -153,11 +202,12 @@ def shorten_url():
             salt = str(attempt) if attempt > 0 else ""
             short_url = generate_short_url(long_url, salt)
             if short_url not in DEV_STORAGE:
-                DEV_STORAGE[short_url] = long_url
+                DEV_STORAGE[short_url] = {'long_url': long_url, 'expires_at': expires_at}
                 return jsonify({
                     "success": True,
                     "short_url": f"{request.host_url}{short_url}",
-                    "original_url": long_url
+                    "original_url": long_url,
+                    "expires_at": expires_at.isoformat() if expires_at else None
                 })
 
         return jsonify({"error": "Failed to generate unique URL. Try again."}), 500
@@ -180,15 +230,16 @@ def shorten_url():
                     return jsonify({"error": "Alias already taken"}), 400
 
                 cursor.execute(
-                    "INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s);",
-                    (long_url, custom_alias)
+                    "INSERT INTO url_mapping (long_url, short_url, expires_at) VALUES (%s, %s, %s);",
+                    (long_url, custom_alias, expires_at)
                 )
                 conn.commit()
                 cursor.close()
                 return jsonify({
                     "success": True,
                     "short_url": f"{request.host_url}{custom_alias}",
-                    "original_url": long_url
+                    "original_url": long_url,
+                    "expires_at": expires_at.isoformat() if expires_at else None
                 })
 
             # Auto-generate with collision handling
@@ -198,15 +249,16 @@ def shorten_url():
 
                 try:
                     cursor.execute(
-                        "INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s) RETURNING id;",
-                        (long_url, short_url)
+                        "INSERT INTO url_mapping (long_url, short_url, expires_at) VALUES (%s, %s, %s) RETURNING id;",
+                        (long_url, short_url, expires_at)
                     )
                     conn.commit()
                     cursor.close()
                     return jsonify({
                         "success": True,
                         "short_url": f"{request.host_url}{short_url}",
-                        "original_url": long_url
+                        "original_url": long_url,
+                        "expires_at": expires_at.isoformat() if expires_at else None
                     })
                 except psycopg.errors.UniqueViolation:
                     conn.rollback()  # Collision, try with new salt
@@ -232,7 +284,15 @@ def redirect_url(short_url):
     # Development mode only
     if DEVELOPMENT_MODE or POOL is None:
         if short_url in DEV_STORAGE:
-            return redirect(DEV_STORAGE[short_url])
+            entry = DEV_STORAGE[short_url]
+            # Handle old format (string) vs new format (dict)
+            if isinstance(entry, str):
+                return redirect(entry)
+            
+            expires_at = entry.get('expires_at')
+            if expires_at and datetime.now() > expires_at:
+                return render_template('expired.html'), 410
+            return redirect(entry['long_url'])
         return "Not Found", 404
 
     with get_db_connection() as conn:
@@ -241,14 +301,21 @@ def redirect_url(short_url):
 
         try:
             cursor = conn.cursor()
-            cursor.execute("SELECT long_url FROM url_mapping WHERE short_url = %s;", (short_url,))
+            cursor.execute("SELECT long_url, expires_at FROM url_mapping WHERE short_url = %s;", (short_url,))
             entry = cursor.fetchone()
 
             if entry:
+                long_url, expires_at = entry
+                
+                # Check if link has expired
+                if expires_at and datetime.now() > expires_at:
+                    cursor.close()
+                    return render_template('expired.html'), 410
+                
                 cursor.execute("UPDATE url_mapping SET clicks = clicks + 1 WHERE short_url = %s;", (short_url,))
                 conn.commit()
                 cursor.close()
-                return redirect(entry[0])
+                return redirect(long_url)
 
             cursor.close()
             return "Not Found", 404

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Expired - KuttyURL</title>
+    <link rel="icon" type="image/png" href="https://shortenter.link/assets/images/icon-url-shortener.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top, #6b4df7, #4725c7, #31128b);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .expired-card {
+            background: rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 50px 40px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+        }
+        
+        .expired-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 25px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 45px;
+            color: white;
+            box-shadow: 0 8px 25px rgba(255, 100, 100, 0.4);
+        }
+        
+        h1 {
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .home-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #6b4df7 0%, #a855f7 100%);
+            color: white;
+            padding: 16px 35px;
+            border-radius: 16px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 10px 25px rgba(104, 64, 255, 0.4);
+        }
+        
+        .home-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 30px rgba(104, 64, 255, 0.6);
+            color: white;
+        }
+        
+        @media (max-width: 480px) {
+            .expired-card {
+                padding: 35px 25px;
+            }
+            
+            .expired-icon {
+                width: 80px;
+                height: 80px;
+                font-size: 35px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="expired-card">
+        <div class="expired-icon">
+            <i class="fa-solid fa-clock"></i>
+        </div>
+        <h1>Link Expired</h1>
+        <p>This shortened URL has expired and is no longer available. The link owner set an expiration date that has passed.</p>
+        <a href="/" class="home-btn">
+            <i class="fa-solid fa-home me-2"></i>
+            Create New Link
+        </a>
+    </div>
+</body>
+</html>
