@@ -1,7 +1,7 @@
 from flask import Flask, request, redirect, jsonify, render_template
 import os
-import psycopg2
-from psycopg2.pool import SimpleConnectionPool
+import psycopg
+from psycopg_pool import ConnectionPool
 from dotenv import load_dotenv
 import hashlib
 import base64
@@ -37,28 +37,24 @@ def init_db_pool():
     try:
         print("[DB] Connecting to Supabase...")
 
-        POOL = SimpleConnectionPool(
-            minconn=1,
-            maxconn=5,
-            dsn=DB_URL
+        POOL = ConnectionPool(
+            conninfo=DB_URL,
+            min_size=1,
+            max_size=5
         )
 
-        conn = POOL.getconn()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS url_mapping (
-            id SERIAL PRIMARY KEY,
-            long_url TEXT NOT NULL,
-            short_url VARCHAR(50) UNIQUE NOT NULL,
-            clicks INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """)
-
-        conn.commit()
-        cursor.close()
-        POOL.putconn(conn)
+        with POOL.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS url_mapping (
+                    id SERIAL PRIMARY KEY,
+                    long_url TEXT NOT NULL,
+                    short_url VARCHAR(50) UNIQUE NOT NULL,
+                    clicks INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """)
+                conn.commit()
 
         print("[DB] Supabase table ready")
 
@@ -73,17 +69,16 @@ def init_db_pool():
 @contextmanager
 def get_db_connection():
     """Context manager for safe database connection handling."""
-    conn = None
+    if not POOL:
+        yield None
+        return
+    
     try:
-        if POOL:
-            conn = POOL.getconn()
-        yield conn
+        with POOL.connection() as conn:
+            yield conn
     except Exception as e:
         print(f"[DB ERROR] Connection error: {e}")
         yield None
-    finally:
-        if conn and POOL:
-            POOL.putconn(conn)
 
 
 # --------------------------
@@ -213,7 +208,7 @@ def shorten_url():
                         "short_url": f"{request.host_url}{short_url}",
                         "original_url": long_url
                     })
-                except psycopg2.IntegrityError:
+                except psycopg.errors.UniqueViolation:
                     conn.rollback()  # Collision, try with new salt
                     continue
 
