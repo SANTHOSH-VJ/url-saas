@@ -5,6 +5,9 @@ from psycopg2.pool import SimpleConnectionPool
 from dotenv import load_dotenv
 import hashlib
 import base64
+import re
+from urllib.parse import urlparse
+from contextlib import contextmanager
 
 load_dotenv()
 
@@ -65,22 +68,50 @@ def init_db_pool():
 
 
 # --------------------------
-# GET A CONNECTION
+# GET A CONNECTION (Context Manager)
 # --------------------------
+@contextmanager
 def get_db_connection():
-    if POOL:
-        try:
-            return POOL.getconn()
-        except:
-            return None
-    return None
+    """Context manager for safe database connection handling."""
+    conn = None
+    try:
+        if POOL:
+            conn = POOL.getconn()
+        yield conn
+    except Exception as e:
+        print(f"[DB ERROR] Connection error: {e}")
+        yield None
+    finally:
+        if conn and POOL:
+            POOL.putconn(conn)
+
+
+# --------------------------
+# URL VALIDATION
+# --------------------------
+def is_valid_url(url):
+    """Validate URL format."""
+    try:
+        result = urlparse(url)
+        return all([result.scheme in ('http', 'https'), result.netloc])
+    except:
+        return False
+
+
+def is_valid_alias(alias):
+    """Validate custom alias (alphanumeric, hyphens, underscores only)."""
+    if not alias:
+        return True
+    return bool(re.match(r'^[a-zA-Z0-9_-]{1,50}$', alias))
 
 
 # --------------------------
 # SHORT URL GENERATION
 # --------------------------
-def generate_short_url(long_url):
-    hash_object = hashlib.sha256(long_url.encode())
+def generate_short_url(long_url, salt=""):
+    """Generate a short URL hash with optional salt for collision handling."""
+    hash_input = f"{long_url}{salt}".encode()
+    hash_object = hashlib.sha256(hash_input)
     return base64.urlsafe_b64encode(hash_object.digest())[:6].decode()
 
 
@@ -97,21 +128,24 @@ def home():
 # --------------------------
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
-    long_url = request.form.get('long_url')
-    custom_alias = request.form.get('alias')
+    long_url = request.form.get('long_url', '').strip()
+    custom_alias = request.form.get('alias', '').strip()
 
-    if not long_url:
-        return jsonify({"error": "Invalid URL"}), 400
+    # Validate URL
+    if not long_url or not is_valid_url(long_url):
+        return jsonify({"error": "Please enter a valid URL (http/https)"}), 400
+
+    # Validate custom alias
+    if custom_alias and not is_valid_alias(custom_alias):
+        return jsonify({"error": "Alias can only contain letters, numbers, hyphens, and underscores"}), 400
 
     # --------------------------
     # DEVELOPMENT MODE
     # --------------------------
     if DEVELOPMENT_MODE or POOL is None:
-
         if custom_alias:
             if custom_alias in DEV_STORAGE:
                 return jsonify({"error": "Alias already taken"}), 400
-
             DEV_STORAGE[custom_alias] = long_url
             return jsonify({
                 "success": True,
@@ -119,62 +153,76 @@ def shorten_url():
                 "original_url": long_url
             })
 
-        short_url = generate_short_url(long_url)
-        DEV_STORAGE[short_url] = long_url
+        # Handle collisions in dev mode
+        for attempt in range(5):
+            salt = str(attempt) if attempt > 0 else ""
+            short_url = generate_short_url(long_url, salt)
+            if short_url not in DEV_STORAGE:
+                DEV_STORAGE[short_url] = long_url
+                return jsonify({
+                    "success": True,
+                    "short_url": f"{request.host_url}{short_url}",
+                    "original_url": long_url
+                })
 
-        return jsonify({
-            "success": True,
-            "short_url": f"{request.host_url}{short_url}",
-            "original_url": long_url
-        })
+        return jsonify({"error": "Failed to generate unique URL. Try again."}), 500
 
     # --------------------------
     # DATABASE MODE
     # --------------------------
-    conn = get_db_connection()
-    if conn is None:
-        return jsonify({"error": "Database connection failed"}), 500
+    with get_db_connection() as conn:
+        if conn is None:
+            return jsonify({"error": "Database connection failed"}), 500
 
-    cursor = conn.cursor()
+        try:
+            cursor = conn.cursor()
 
-    # Check custom alias
-    if custom_alias:
-        cursor.execute("SELECT id FROM url_mapping WHERE short_url = %s;", (custom_alias,))
-        exists = cursor.fetchone()
+            # Check custom alias
+            if custom_alias:
+                cursor.execute("SELECT id FROM url_mapping WHERE short_url = %s;", (custom_alias,))
+                if cursor.fetchone():
+                    cursor.close()
+                    return jsonify({"error": "Alias already taken"}), 400
 
-        if exists:
-            POOL.putconn(conn)
-            return jsonify({"error": "Alias already taken"}), 400
+                cursor.execute(
+                    "INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s);",
+                    (long_url, custom_alias)
+                )
+                conn.commit()
+                cursor.close()
+                return jsonify({
+                    "success": True,
+                    "short_url": f"{request.host_url}{custom_alias}",
+                    "original_url": long_url
+                })
 
-        cursor.execute(
-            "INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s);",
-            (long_url, custom_alias)
-        )
-        conn.commit()
-        POOL.putconn(conn)
+            # Auto-generate with collision handling
+            for attempt in range(5):
+                salt = str(attempt) if attempt > 0 else ""
+                short_url = generate_short_url(long_url, salt)
 
-        return jsonify({
-            "success": True,
-            "short_url": f"{request.host_url}{custom_alias}",
-            "original_url": long_url
-        })
+                try:
+                    cursor.execute(
+                        "INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s) RETURNING id;",
+                        (long_url, short_url)
+                    )
+                    conn.commit()
+                    cursor.close()
+                    return jsonify({
+                        "success": True,
+                        "short_url": f"{request.host_url}{short_url}",
+                        "original_url": long_url
+                    })
+                except psycopg2.IntegrityError:
+                    conn.rollback()  # Collision, try with new salt
+                    continue
 
-    # Auto-generate short code
-    short_url = generate_short_url(long_url)
+            cursor.close()
+            return jsonify({"error": "Failed to generate unique URL. Try again."}), 500
 
-    cursor.execute(
-        "INSERT INTO url_mapping (long_url, short_url) VALUES (%s, %s) RETURNING id;",
-        (long_url, short_url)
-    )
-    conn.commit()
-
-    POOL.putconn(conn)
-
-    return jsonify({
-        "success": True,
-        "short_url": f"{request.host_url}{short_url}",
-        "original_url": long_url
-    })
+        except Exception as e:
+            print(f"[DB ERROR] shorten_url: {e}")
+            return jsonify({"error": "Database error occurred"}), 500
 
 
 # --------------------------
@@ -182,6 +230,9 @@ def shorten_url():
 # --------------------------
 @app.route('/<short_url>')
 def redirect_url(short_url):
+    # Validate short_url format to prevent injection
+    if not re.match(r'^[a-zA-Z0-9_-]{1,50}$', short_url):
+        return "Invalid URL", 400
 
     # Development mode only
     if DEVELOPMENT_MODE or POOL is None:
@@ -189,23 +240,27 @@ def redirect_url(short_url):
             return redirect(DEV_STORAGE[short_url])
         return "Not Found", 404
 
-    conn = get_db_connection()
-    if conn is None:
-        return "DB Error", 500
+    with get_db_connection() as conn:
+        if conn is None:
+            return "DB Error", 500
 
-    cursor = conn.cursor()
-    cursor.execute("SELECT long_url FROM url_mapping WHERE short_url = %s;", (short_url,))
-    entry = cursor.fetchone()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT long_url FROM url_mapping WHERE short_url = %s;", (short_url,))
+            entry = cursor.fetchone()
 
-    if entry:
-        cursor.execute("UPDATE url_mapping SET clicks = clicks + 1 WHERE short_url = %s;", (short_url,))
-        conn.commit()
-        long_url = entry[0]
-        POOL.putconn(conn)
-        return redirect(long_url)
+            if entry:
+                cursor.execute("UPDATE url_mapping SET clicks = clicks + 1 WHERE short_url = %s;", (short_url,))
+                conn.commit()
+                cursor.close()
+                return redirect(entry[0])
 
-    POOL.putconn(conn)
-    return "Not Found", 404
+            cursor.close()
+            return "Not Found", 404
+
+        except Exception as e:
+            print(f"[DB ERROR] redirect_url: {e}")
+            return "Server Error", 500
 
 
 # --------------------------

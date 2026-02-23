@@ -1,0 +1,14 @@
+# render.yaml - Render deployment configuration
+services:
+  - type: web
+    name: kutty-url
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DB_URL
+        sync: false  # Set manually in dashboard
+      - key: DEVELOPMENT_MODE
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.10.12"

@@ -349,7 +349,10 @@
         }
 
         function showError(msg) {
-            document.getElementById("resultUrl").innerHTML = `<span class="text-danger">${msg}</span>`;
+            // Use textContent to prevent XSS attacks
+            const resultEl = document.getElementById("resultUrl");
+            resultEl.textContent = msg;
+            resultEl.classList.add("text-danger");
             document.getElementById("resultContainer").style.display = "block";
         }
 
