@@ -11,5 +11,5 @@ Responsive HTML frontend with Flask render_template
 Tech Stack:
 Backend: Python (Flask)
 Database: MySQL
-Frontend: HTML (Jinja2 templates)
+Frontend: HTML
 Libraries: mysql-connector-python, hashlib, base64
